@@ -1,7 +1,7 @@
 # multipath_kfree
 low effort jb for iOS 11.3.1 by [@jaakerblom](https://twitter.com/jaakerblom)
 
-Obtains PC+X0 control and jumps to 0xFFFFFF41414141
+Obtains PC+X0 control and jumps to 0xFFFFFFFF41414141
 
 Tested on iPhone X only
 
