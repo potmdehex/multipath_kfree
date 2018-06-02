@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		12242AA520C1BAF400B28377 /* multipath_kfree.c in Sources */ = {isa = PBXBuildFile; fileRef = 12242AA120C1BAF300B28377 /* multipath_kfree.c */; };
 		12242AA620C1BAF400B28377 /* extra_recipe_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 12242AA220C1BAF300B28377 /* extra_recipe_utils.c */; };
+		1260990B20C2C9680095B5C1 /* sha256.o in Frameworks */ = {isa = PBXBuildFile; fileRef = 1260990820C2C9670095B5C1 /* sha256.o */; };
+		1260990C20C2C9680095B5C1 /* qilin_tfp0less.o in Frameworks */ = {isa = PBXBuildFile; fileRef = 1260990920C2C9670095B5C1 /* qilin_tfp0less.o */; };
+		1260990D20C2C9680095B5C1 /* sha1.o in Frameworks */ = {isa = PBXBuildFile; fileRef = 1260990A20C2C9670095B5C1 /* sha1.o */; };
 		B0E5165B1E39459300CE4C47 /* README in Resources */ = {isa = PBXBuildFile; fileRef = B0E5165A1E39459300CE4C47 /* README */; };
 		B0F37BC11E361EAE00179E85 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F37BC01E361EAE00179E85 /* AppDelegate.swift */; };
 		B0F37BC31E361EAE00179E85 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F37BC21E361EAE00179E85 /* ViewController.swift */; };
@@ -25,6 +28,10 @@
 		12242AA220C1BAF300B28377 /* extra_recipe_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = extra_recipe_utils.c; sourceTree = "<group>"; };
 		12242AA320C1BAF300B28377 /* extra_recipe_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = extra_recipe_utils.h; sourceTree = "<group>"; };
 		12242AA420C1BAF300B28377 /* multipath_kfree.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = multipath_kfree.h; sourceTree = "<group>"; };
+		1260990720C2C9670095B5C1 /* QiLin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QiLin.h; sourceTree = "<group>"; };
+		1260990820C2C9670095B5C1 /* sha256.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = sha256.o; sourceTree = "<group>"; };
+		1260990920C2C9670095B5C1 /* qilin_tfp0less.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = qilin_tfp0less.o; sourceTree = "<group>"; };
+		1260990A20C2C9670095B5C1 /* sha1.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = sha1.o; sourceTree = "<group>"; };
 		B0E5165A1E39459300CE4C47 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		B0F37BBD1E361EAE00179E85 /* extra_recipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = extra_recipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0F37BC01E361EAE00179E85 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -43,6 +50,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1260990D20C2C9680095B5C1 /* sha1.o in Frameworks */,
+				1260990C20C2C9680095B5C1 /* qilin_tfp0less.o in Frameworks */,
+				1260990B20C2C9680095B5C1 /* sha256.o in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,6 +93,10 @@
 				12242AA320C1BAF300B28377 /* extra_recipe_utils.h */,
 				12242AA120C1BAF300B28377 /* multipath_kfree.c */,
 				12242AA420C1BAF300B28377 /* multipath_kfree.h */,
+				1260990920C2C9670095B5C1 /* qilin_tfp0less.o */,
+				1260990720C2C9670095B5C1 /* QiLin.h */,
+				1260990A20C2C9670095B5C1 /* sha1.o */,
+				1260990820C2C9670095B5C1 /* sha256.o */,
 			);
 			path = extra_recipe;
 			sourceTree = "<group>";
@@ -130,7 +144,7 @@
 					};
 				};
 			};
-			buildConfigurationList = B0F37BB81E361EAD00179E85 /* Build configuration list for PBXProject "extra_recipe" */;
+			buildConfigurationList = B0F37BB81E361EAD00179E85 /* Build configuration list for PBXProject "extra_recipe_extra_extra_bug" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -346,7 +360,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B0F37BB81E361EAD00179E85 /* Build configuration list for PBXProject "extra_recipe" */ = {
+		B0F37BB81E361EAD00179E85 /* Build configuration list for PBXProject "extra_recipe_extra_extra_bug" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B0F37BCD1E361EAE00179E85 /* Debug */,
