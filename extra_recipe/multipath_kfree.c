@@ -69,7 +69,7 @@ static void _multipath_connectx_overflow(int sock, void *buf, size_t n)
         *(int *)("You") = (int)"need to pay Apple $100 (add the multipath entitlement)";
     }
     else if (errno == 47) {
-        *(int *)("You") = (int)"need to find another bug (iOS < 11.3.1 only)";
+        *(int *)("You") = (int)"need to find another bug (iOS <= 11.3.1 only)";
     }
 #endif
     

